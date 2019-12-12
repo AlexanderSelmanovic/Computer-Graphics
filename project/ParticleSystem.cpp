@@ -1,10 +1,5 @@
 #include "ParticleSystem.h"
 
-/*
-	behöver ta in particles på något sätt, antar att den ska finns i main på något sätt
-*/
-
-
 // Methods
 void ParticleSystem::kill(int id) {
 	particles.erase(particles.begin() + id);

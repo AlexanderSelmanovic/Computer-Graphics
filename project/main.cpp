@@ -17,6 +17,7 @@ using namespace glm;
 #include <Model.h>
 #include "hdr.h"
 #include "fbo.h"
+#include "ParticleSystem.h"
 
 using std::min;
 using std::max;
@@ -145,6 +146,13 @@ void initGL()
 
 	glEnable(GL_DEPTH_TEST); // enable Z-buffering
 	glEnable(GL_CULL_FACE);  // enables backface culling
+
+
+
+	/*GLuint particleBuffer;
+	glGenBuffers(1, &particleBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, particleBuffer);
+	glBufferData(GL_ARRAY_BUFFER, 100000, nullptr, GL_STATIC_DRAW);*/
 }
 
 void debugDrawLight(const glm::mat4& viewMatrix,
