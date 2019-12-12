@@ -287,7 +287,7 @@ void display(void)
 	drawScene(simpleShaderProgram, lightViewMatrix, lightProjMatrix, lightViewMatrix, lightProjMatrix);
 
 	labhelper::Material& screen = landingpadModel->m_materials[8];
-	screen.m_emission_texture.gl_id = shadowMapFB.colorTextureTarget;
+	screen.m_emission_texture.gl_id = shadowMapFB.colorTextureTargets[0];
 
 	if (usePolygonOffset) {
 		glDisable(GL_POLYGON_OFFSET_FILL);
