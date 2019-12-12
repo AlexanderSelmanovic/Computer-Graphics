@@ -2,10 +2,17 @@
 #include <cstdint>
 #include <labhelper.h>
 
-FboInfo::FboInfo(int numberOfColorBuffers)
-    : isComplete(false), framebufferId(UINT32_MAX), depthBuffer(UINT32_MAX), width(0), height(0)
+FboInfo::FboInfo()
+	: isComplete(false)
+	, framebufferId(UINT32_MAX)
+	, colorTextureTarget(UINT32_MAX)
+	, depthBuffer(UINT32_MAX)
+	, width(0)
+	, height(0) {};
+
+FboInfo::FboInfo(int w, int h) : FboInfo()
 {
-	colorTextureTargets.resize(numberOfColorBuffers, UINT32_MAX);
+	resize(w, h);
 };
 
 void FboInfo::resize(int w, int h)
@@ -16,23 +23,20 @@ void FboInfo::resize(int w, int h)
 	///////////////////////////////////////////////////////////////////////
 	// if no texture indices yet, allocate
 	///////////////////////////////////////////////////////////////////////
-	for(auto& colorTextureTarget : colorTextureTargets)
+	if (colorTextureTarget == UINT32_MAX)
 	{
-		if(colorTextureTarget == UINT32_MAX)
-		{
-			glGenTextures(1, &colorTextureTarget);
-			glBindTexture(GL_TEXTURE_2D, colorTextureTarget);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		}
+		glGenTextures(1, &colorTextureTarget);
+		glBindTexture(GL_TEXTURE_2D, colorTextureTarget);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	}
 
-	if(depthBuffer == UINT32_MAX)
+	if (depthBuffer == UINT32_MAX)
 	{
 		glGenTextures(1, &depthBuffer);
 		glBindTexture(GL_TEXTURE_2D, depthBuffer);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); //Changed GL_NEAREST
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); //Changed GL_NEAREST
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	}
@@ -40,20 +44,17 @@ void FboInfo::resize(int w, int h)
 	///////////////////////////////////////////////////////////////////////
 	// Allocate / Resize textures
 	///////////////////////////////////////////////////////////////////////
-	for(auto& colorTextureTarget : colorTextureTargets)
-	{
-		glBindTexture(GL_TEXTURE_2D, colorTextureTarget);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	}
+	glBindTexture(GL_TEXTURE_2D, colorTextureTarget);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
 	glBindTexture(GL_TEXTURE_2D, depthBuffer);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT,
-	             nullptr);
+		nullptr);
 
 	///////////////////////////////////////////////////////////////////////
 	// Bind textures to framebuffer (if not already done)
 	///////////////////////////////////////////////////////////////////////
-	if(!isComplete)
+	if (!isComplete)
 	{
 		///////////////////////////////////////////////////////////////////////
 		// Generate and bind framebuffer
@@ -61,16 +62,9 @@ void FboInfo::resize(int w, int h)
 		glGenFramebuffers(1, &framebufferId);
 		glBindFramebuffer(GL_FRAMEBUFFER, framebufferId);
 
-		// Bind the color textures as color attachments
-		for(int i = 0; i < int(colorTextureTargets.size()); i++)
-		{
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D,
-			                       colorTextureTargets[i], 0);
-		}
-		GLenum attachments[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2,
-			                     GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5,
-			                     GL_COLOR_ATTACHMENT6, GL_COLOR_ATTACHMENT7 };
-		glDrawBuffers(int(colorTextureTargets.size()), attachments);
+		// bind the texture as color attachment 0 (to the currently bound framebuffer)
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorTextureTarget, 0);
+		glDrawBuffer(GL_COLOR_ATTACHMENT0);
 
 		// bind the texture as depth attachment (to the currently bound framebuffer)
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthBuffer, 0);
@@ -90,7 +84,7 @@ bool FboInfo::checkFramebufferComplete(void)
 	// invalid drawbuffer, among things.
 	glBindFramebuffer(GL_FRAMEBUFFER, framebufferId);
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if(status != GL_FRAMEBUFFER_COMPLETE)
+	if (status != GL_FRAMEBUFFER_COMPLETE)
 	{
 		labhelper::fatal_error("Framebuffer not complete");
 	}

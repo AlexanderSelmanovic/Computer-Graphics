@@ -9,7 +9,6 @@ in vec2 texCoord;
 uniform mat4 inv_PV;
 uniform vec3 camera_pos;
 uniform float environment_multiplier;
-//TESTING
 #define PI 3.14159265359
 
 void main()
