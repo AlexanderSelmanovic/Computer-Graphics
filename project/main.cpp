@@ -101,6 +101,11 @@ labhelper::Model* sphereModel = nullptr;
 mat4 roomModelMatrix;
 mat4 fighterModelMatrix;
 
+//////////// vertex array object to hold the elements ////////////////////
+GLuint VAOelements;
+
+/////////////////////////////////////////////////////////////////////
+
 void initGL()
 {
 	///////////////////////////////////////////////////////////////////////
@@ -148,11 +153,38 @@ void initGL()
 	glEnable(GL_CULL_FACE);  // enables backface culling
 
 
+	std::vector<glm::vec4> data;
 
-	/*GLuint particleBuffer;
+	vec4 data_pos[1000000];
+
+	for (int i = 0; i < sizeof(data_pos) / sizeof(data_pos[0]); i++) {
+		const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
+		const float u = labhelper::uniform_randf(0.95f, 1.f);
+		glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta), u, sqrt(1.f - u * u) * sinf(theta));
+		data_pos[i] = vec4(pos, 5);
+	}
+	
+	GLuint particleBuffer;
 	glGenBuffers(1, &particleBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, particleBuffer);
-	glBufferData(GL_ARRAY_BUFFER, 100000, nullptr, GL_STATIC_DRAW);*/
+	glBufferData(GL_ARRAY_BUFFER, sizeof(data_pos), data_pos, GL_STATIC_DRAW);
+
+	glGenVertexArrays(1, &VAOelements);
+	glBindVertexArray(VAOelements);
+	glBindBuffer(GL_ARRAY_BUFFER, particleBuffer);
+	glVertexAttribPointer(0, 1, GL_FLOAT, false, 0, 0);
+	glEnableVertexAttribArray(0); 
+
+	ParticleSystem particle_system(100000);
+	unsigned int active_particles = particle_system.particles.size();
+
+	std::sort(data.begin(), std::next(data.begin(), active_particles),
+		[](const vec4& lhs, const vec4& rhs) { return lhs.z < rhs.z; });
+
+
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(unsigned int), sizeof(active_particles), data.data());
+
+
 }
 
 void debugDrawLight(const glm::mat4& viewMatrix,
