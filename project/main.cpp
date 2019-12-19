@@ -45,7 +45,7 @@ GLuint simpleShaderProgram; // Shader used to draw the shadow map
 GLuint backgroundProgram;
 
 /**********LAB 7***************/
-GLuint basicShaderProgram;
+GLuint particleShaderProgram;
 /******************************/
 ///////////////////////////////////////////////////////////////////////////////
 // Environment
@@ -83,7 +83,7 @@ bool shadowMapClampBorderShadowed = false;
 bool usePolygonOffset = false;
 bool useSoftFalloff = false;
 bool useHardwarePCF = false;
-float polygonOffset_factor = .25f;
+float polygonOffset_factor = 1.25f;
 float polygonOffset_units = 1.0f;
 
 
@@ -114,6 +114,7 @@ GLuint VAOparticles;
 
 
 unsigned int active_particles;
+size_t max_size = 100000;
 /****************************/
 
 
@@ -131,8 +132,7 @@ void initGL()
 
 
 	/****************LAB 7********************/
-
-	basicShaderProgram = labhelper::loadShaderProgram("../project/particle.vert",
+	particleShaderProgram = labhelper::loadShaderProgram("../project/particle.vert",
 		"../project/particle.frag");
 	/***************************************/
 	///////////////////////////////////////////////////////////////////////
@@ -179,22 +179,25 @@ void initGL()
 		//ParticleSystem particle_system(100000); // modified particle data
 
 		//and do
-	active_particles = 100000;//particle_system.particles.size();
+	active_particles = 20000;//particle_system.particles.size();
 
 	// Code for extracting data goes here
-	//?????? should all data be extracted ??????////
-	// wgy else use glBufferSubData  
 	std::vector<glm::vec4> data;
-	data.resize(active_particles);
+	//data.resize(active_particles);
+
+	//When we have a particle system
 	//for (size_t ix = 0; ix < active_particles; ix++)
 	//	data.push_back(vec4(particle_system.particles[ix].pos, particle_system.particles[ix].lifetime));
 	//
+
 	int scale = 10;
 	for (size_t ix = 0; ix < active_particles; ix++) {
 		const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
 		const float u = labhelper::uniform_randf(-1.f, 1.f);
-		glm::vec3 pos = glm::vec3(scale * sqrt(1.f - u * u) * cosf(theta), scale * u, scale * sqrt(1.f - u * u) * sinf(theta));
-		data.push_back(vec4(pos, 5));
+		//const float u = labhelper::uniform_randf(0.95f, 1.f);
+		glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta) * scale, u * scale, sqrt(1.f - u * u) * sinf(theta) * scale);
+		//glm::vec3 pos = glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta));
+		data.push_back(vec4(pos, 5.0f));
 	}
 	// sort particles with sort from c++ standard library
 	std::sort(data.begin(), std::next(data.begin(), active_particles),
@@ -204,32 +207,34 @@ void initGL()
 
 	///////////////Uploading data to the gpu////////////////
 	// position and lifetime buffer
-	GLuint pos_life_Buffer;
-	glGenBuffers(1, &pos_life_Buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, pos_life_Buffer);
-
-	glBufferSubData(GL_ARRAY_BUFFER, sizeof(data[0]), sizeof(data[0]) * (active_particles), data.data());
+	GLuint pos_life_buffer;
+	glGenBuffers(1, &pos_life_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, pos_life_buffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * max_size, nullptr, GL_STATIC_DRAW); 
+	glBufferSubData(GL_ARRAY_BUFFER, 0, (active_particles) * sizeof(glm::vec4(0)), data.data());
 	//////////////////////////////////////////////////
-			// Create a handle for the vertex color buffer
 
-	//	const float colors[] = {0.0f, 1.0f, 0.0f};
-	//	GLuint colorTexture;
-	//	glGenBuffers(1, &colorTexture);
-	//	// Set the newly created buffer as the current one
-	//	glBindBuffer(GL_ARRAY_BUFFER, colorTexture);
-	//	// Send the vertex color data to the current buffer
-	//	glBufferData(GL_ARRAY_BUFFER, sizeof(const float) * 3, colors, GL_STATIC_DRAW);
+	std::vector<glm::vec3> col;
+	for (size_t ix = 0; ix < active_particles; ix++) {
+		col.push_back(glm::vec3(0.0f, 1.0f, 0.0f));
+	}
+	GLuint col_buffer;
+	glGenBuffers(1, &col_buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, col_buffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * max_size, nullptr, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, (active_particles) * sizeof(glm::vec3(0)), col.data());
+
 
 	glGenVertexArrays(1, &VAOparticles);
 	glBindVertexArray(VAOparticles);
 
-	glBindBuffer(GL_ARRAY_BUFFER, pos_life_Buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, pos_life_buffer);
 	glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, 0);
 	glEnableVertexAttribArray(0); // Enable the vertex position attribute
-	//	glBindBuffer(GL_ARRAY_BUFFER, colorTexture);
-	//	glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-	//	glEnableVertexAttribArray(0); // Enable the vertex position attribute
 
+	glBindBuffer(GL_ARRAY_BUFFER, col_buffer);
+	glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
+	glEnableVertexAttribArray(1); // Enable the vertex color attribute
 /***********************************/
 
 
@@ -394,24 +399,43 @@ void display(void)
 	debugDrawLight(viewMatrix, projMatrix, vec3(lightPosition));
 
 	/***************LAB 7*********************/
-	SDL_GetWindowSize(g_window, &w, &h);
-	glViewport(0, 0, w, h); // Set viewport
 
-	glClearColor(g_clearColor[0], g_clearColor[1], g_clearColor[2], 1.0); // Set clear color
-	//glClear(GL_BUFFER); // Clears the color buffer and the z-buffer
-						// Instead of glClear(GL_BUFFER) the call should be glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	// We disable backface culling for this tutorial, otherwise care must be taken with the winding order
-	// of the vertices. It is however a lot faster to enable culling when drawing large scenes.
-	glDisable(GL_CULL_FACE);
+	glUseProgram(particleShaderProgram); // bind shader 
 
-	glUseProgram(basicShaderProgram); // bind shader 
+	viewMatrix = lookAt(cameraPosition, cameraPosition + cameraDirection, worldUp);
+
+
+	float fovy = radians(45.0f);
+	float aspectRatio = float(w) / float(h);
+	float nearPlane = 0.01f;
+	float farPlane = 300.0f;
+	mat4 projectionMatrix = perspective(fovy, aspectRatio, nearPlane, farPlane);
+	mat4 P = projectionMatrix;
+
+	//labhelper::setUniformSlow(particleShaderProgram, "P", inverse(projectionMatrix * viewMatrix));
+
+
+	int loc = glGetUniformLocation(particleShaderProgram, "P");
+	//glUniformMatrix4fv(loc, 1, false, &projectionMatrix[0].x);
+	glUniformMatrix4fv(loc, 1, false, &P[0].x);
+
+	float camera_pan = 0.f;
+	loc = glGetUniformLocation(shaderProgram, "screen_x");
+	glUniform1f(loc, camera_pan);
+
+	loc = glGetUniformLocation(shaderProgram, "screen_y");
+	glUniform1f(loc, camera_pan);
+
+	glPointSize(5.0f);
 	glBindVertexArray(VAOparticles);
-
+	
 	glDrawArrays(GL_POINTS, 0, active_particles);
 
 	/*****************************************/
 	CHECK_GL_ERROR();
+
+
+
 }
 
 bool handleEvents(void)
