@@ -8,6 +8,7 @@ extern "C" _declspec(dllexport) unsigned int NvOptimusEnablement = 0x00000001;
 #include <cstdlib>
 #include <algorithm>
 #include <chrono>
+#include <stb_image.h>
 
 #include <labhelper.h>
 #include <imgui.h>
@@ -113,12 +114,15 @@ mat4 fighterModelMatrix;
 //input tp vertex shader :is position and lifetime
 GLuint VAOparticles;
 GLuint pos_life_buffer;
+GLuint texture;
+
 
 
 unsigned int active_particles;
 size_t max_size = 100000;
 std::vector<glm::vec4> data;
 ParticleSystem particle_system(max_size);
+mat4 T(1.0f), R(1.0f);
 /****************************/
 
 
@@ -147,7 +151,7 @@ void initGL()
 	sphereModel = labhelper::loadModelFromOBJ("../scenes/sphere.obj");
 
 	roomModelMatrix = mat4(1.0f);
-	fighterModelMatrix = translate(15.0f * worldUp);
+	T = translate(15.0f * worldUp);
 
 	///////////////////////////////////////////////////////////////////////
 	// Load environment map
@@ -206,6 +210,7 @@ void initGL()
 	glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, 0);
 	glEnableVertexAttribArray(0);
 	//////////////////////////////////////////////////
+
 
 /***********************************/
 
@@ -390,7 +395,7 @@ void display(void)
 	glBindBuffer(GL_ARRAY_BUFFER, pos_life_buffer);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, data.size() * sizeof(vec4), data.data());
 
-	labhelper::setUniformSlow(particleShaderProgram, "P", projMatrix * fighterModelMatrix * viewMatrix);
+	labhelper::setUniformSlow(particleShaderProgram, "P", projMatrix * viewMatrix);
 
 	//float camera_pan = 0.f;
 	//loc = glGetUniformLocation(shaderProgram, "screen_x");
@@ -398,6 +403,8 @@ void display(void)
 
 	//loc = glGetUniformLocation(shaderProgram, "screen_y");
 	//glUniform1f(loc, camera_pan);
+
+	
 
 	glBindVertexArray(VAOparticles);
 	
@@ -512,22 +519,42 @@ bool handleEvents(void)
 			cameraPosition += deltaTime * cameraSpeed * worldUp;
 		}
 
-		if (state[SDL_SCANCODE_UP])
-		{
-			float speed = 10.0f;
+		const float speed = 40.0f;
+		if (state[SDL_SCANCODE_UP]) {
+			T[3] -= speed * deltaTime * R[0];// vec4(-R[0][2], 0, R[0][0], 0.0f);
+			
+			//float speed = 20.0f;
 			for (size_t ix = 0; ix < 64; ix++) {
 				const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
 				const float u = labhelper::uniform_randf(0.95f, 1.f);
 				glm::vec3 v = normalize(glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)));
+				vec3 fighter = vec3(0);
 				Particle p;
-				p.velocity = speed * v;
-				p.pos = vec3(17.f, 3.5f ,0);
+				p.velocity = mat3(fighterModelMatrix) * speed * v;
+				p.pos = fighterModelMatrix * vec4(17.f, 3.5f, 0, 1);
 				p.lifetime = 0;
 				p.life_length = 5;
 
 				particle_system.spawn(p);
 			}
 		}
+		if (state[SDL_SCANCODE_DOWN]) {
+			T[3] += speed * deltaTime * R[0];//vec4(0.0f, 0.0f, 1.0f, 0.0f);
+		}
+
+		const float rotateSpeed = 4.f;
+		if (state[SDL_SCANCODE_LEFT]) {
+			R[0] -= rotateSpeed * deltaTime * R[2];
+		}
+		if (state[SDL_SCANCODE_RIGHT]) {
+			R[0] += rotateSpeed * deltaTime * R[2];
+		}
+
+		// Make R orthonormal again
+		R[0] = normalize(R[0]);
+		R[2] = vec4(cross(vec3(R[0]), vec3(R[1])), 0.0f);
+
+		fighterModelMatrix = T * R;
 	}
 
 
