@@ -195,9 +195,10 @@ void initGL()
 		const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
 		const float u = labhelper::uniform_randf(-1.f, 1.f);
 		//const float u = labhelper::uniform_randf(0.95f, 1.f);
-		glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta) * scale, u * scale, sqrt(1.f - u * u) * sinf(theta) * scale);
-		//glm::vec3 pos = glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta));
-		data.push_back(vec4(pos, 5.0f));
+		//glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta) * scale, u * scale, sqrt(1.f - u * u) * sinf(theta) * scale);
+		glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta), u) + vec3(0, 0, -10.f);
+		//glm::vec3 pos = glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)) + vec3(0, 0, -5.f);
+		data.push_back(vec4(pos, 1.0f));
 	}
 	// sort particles with sort from c++ standard library
 	std::sort(data.begin(), std::next(data.begin(), active_particles),
@@ -420,7 +421,6 @@ void display(void)
 	loc = glGetUniformLocation(shaderProgram, "screen_y");
 	glUniform1f(loc, camera_pan);
 
-	glPointSize(5.0f);
 	glBindVertexArray(VAOparticles);
 	
 	glDrawArrays(GL_POINTS, 0, active_particles);
