@@ -2,23 +2,23 @@
 
 // Methods
 void ParticleSystem::kill(int id) {
-	particles.erase(particles.begin() + id);
+	std::swap(particles[id], particles.back());
+	particles.pop_back();
 }
 
 void ParticleSystem::spawn(Particle particle) {
-	particles.push_back(particle);
+	if (particles.size() < max_size)
+		particles.push_back(particle);
 }
 
 void ParticleSystem::process_particles(float dt) {
 	for (int i = 0; i < particles.size(); i++) {
-		Particle p = particles[i];
-		if (p.lifetime + dt > p.life_length)
+		if (particles[i].lifetime + dt > particles[i].life_length)
 			kill(i);
 	}
 
 	for (int i = 0; i < particles.size(); i++) {
-		Particle p = particles[i];
-		p.lifetime = p.lifetime + dt;
-		p.pos = p.pos + p.velocity * dt;
+		particles[i].lifetime += dt;
+		particles[i].pos += particles[i].velocity * dt;
 	}
 }

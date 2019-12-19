@@ -20,6 +20,7 @@ using namespace glm;
 #include <Model.h>
 #include "hdr.h"
 #include "fbo.h"
+#include "ParticleSystem.h"
 
 using std::min;
 using std::max;
@@ -111,10 +112,13 @@ mat4 fighterModelMatrix;
 // need a vertex array object so that when we render the vertex shader gets their input. 
 //input tp vertex shader :is position and lifetime
 GLuint VAOparticles;
+GLuint pos_life_buffer;
 
 
 unsigned int active_particles;
 size_t max_size = 100000;
+std::vector<glm::vec4> data;
+ParticleSystem particle_system(max_size);
 /****************************/
 
 
@@ -182,7 +186,6 @@ void initGL()
 	active_particles = 20000;//particle_system.particles.size();
 
 	// Code for extracting data goes here
-	std::vector<glm::vec4> data;
 	//data.resize(active_particles);
 
 	//When we have a particle system
@@ -190,52 +193,20 @@ void initGL()
 	//	data.push_back(vec4(particle_system.particles[ix].pos, particle_system.particles[ix].lifetime));
 	//
 
-	int scale = 10;
-	for (size_t ix = 0; ix < active_particles; ix++) {
-		const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
-		const float u = labhelper::uniform_randf(-1.f, 1.f);
-		//const float u = labhelper::uniform_randf(0.95f, 1.f);
-		//glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta) * scale, u * scale, sqrt(1.f - u * u) * sinf(theta) * scale);
-		glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta), u) + vec3(0, 0, -10.f);
-		//glm::vec3 pos = glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)) + vec3(0, 0, -5.f);
-		data.push_back(vec4(pos, 1.0f));
-	}
-	// sort particles with sort from c++ standard library
-	std::sort(data.begin(), std::next(data.begin(), active_particles),
-		[](const vec4& lhs, const vec4& rhs) { return lhs.z < rhs.z; });
-
 	///////////////////////////////////////////////////
 
 	///////////////Uploading data to the gpu////////////////
 	// position and lifetime buffer
-	GLuint pos_life_buffer;
 	glGenBuffers(1, &pos_life_buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, pos_life_buffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * max_size, nullptr, GL_STATIC_DRAW); 
-	glBufferSubData(GL_ARRAY_BUFFER, 0, (active_particles) * sizeof(glm::vec4(0)), data.data());
-	//////////////////////////////////////////////////
-
-	std::vector<glm::vec3> col;
-	for (size_t ix = 0; ix < active_particles; ix++) {
-		col.push_back(glm::vec3(0.0f, 1.0f, 0.0f));
-	}
-	GLuint col_buffer;
-	glGenBuffers(1, &col_buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, col_buffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * max_size, nullptr, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, (active_particles) * sizeof(glm::vec3(0)), col.data());
-
 
 	glGenVertexArrays(1, &VAOparticles);
 	glBindVertexArray(VAOparticles);
-
-	glBindBuffer(GL_ARRAY_BUFFER, pos_life_buffer);
 	glVertexAttribPointer(0, 4, GL_FLOAT, false, 0, 0);
-	glEnableVertexAttribArray(0); // Enable the vertex position attribute
+	glEnableVertexAttribArray(0);
+	//////////////////////////////////////////////////
 
-	glBindBuffer(GL_ARRAY_BUFFER, col_buffer);
-	glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
-	glEnableVertexAttribArray(1); // Enable the vertex color attribute
 /***********************************/
 
 
@@ -400,30 +371,37 @@ void display(void)
 	debugDrawLight(viewMatrix, projMatrix, vec3(lightPosition));
 
 	/***************LAB 7*********************/
+	particle_system.process_particles(deltaTime);
+
+	data.clear();
+	for (Particle p : particle_system.particles) {
+		data.push_back(vec4(p.pos, p.lifetime / p.life_length));
+	}
+
+	// sort particles with sort from c++ standard library
+	//std::sort(data.begin(), std::next(data.begin(), active_particles),
+	//	[](const vec4& lhs, const vec4& rhs) { return lhs.z < rhs.z; });
+
 
 	glUseProgram(particleShaderProgram); // bind shader 
 
-	viewMatrix = lookAt(cameraPosition, cameraPosition + cameraDirection, worldUp);
-
-	mat4 P = projMatrix;// inverse( projMatrix);// inverse(viewMatrix);
-
 	//labhelper::setUniformSlow(particleShaderProgram, "P", inverse(projectionMatrix * viewMatrix));
 
+	glBindBuffer(GL_ARRAY_BUFFER, pos_life_buffer);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, data.size() * sizeof(vec4), data.data());
 
-	int loc = glGetUniformLocation(particleShaderProgram, "P");
-	//glUniformMatrix4fv(loc, 1, false, &projectionMatrix[0].x);
-	glUniformMatrix4fv(loc, 1, false, &P[0][0]);
+	labhelper::setUniformSlow(particleShaderProgram, "P", projMatrix * viewMatrix);
 
-	float camera_pan = 0.f;
-	loc = glGetUniformLocation(shaderProgram, "screen_x");
-	glUniform1f(loc, camera_pan);
+	//float camera_pan = 0.f;
+	//loc = glGetUniformLocation(shaderProgram, "screen_x");
+	//glUniform1f(loc, camera_pan);
 
-	loc = glGetUniformLocation(shaderProgram, "screen_y");
-	glUniform1f(loc, camera_pan);
+	//loc = glGetUniformLocation(shaderProgram, "screen_y");
+	//glUniform1f(loc, camera_pan);
 
 	glBindVertexArray(VAOparticles);
 	
-	glDrawArrays(GL_POINTS, 0, active_particles);
+	glDrawArrays(GL_POINTS, 0, data.size());
 
 	/*****************************************/
 	CHECK_GL_ERROR();
@@ -532,6 +510,23 @@ bool handleEvents(void)
 		{
 			cameraPosition += deltaTime * cameraSpeed * worldUp;
 		}
+	}
+
+
+	float speed = 10.0f;
+	for (size_t ix = 0; ix < 64; ix++) {
+		const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
+		const float u = labhelper::uniform_randf(0.95f, 1.f);
+		//glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta) * scale, u * scale, sqrt(1.f - u * u) * sinf(theta) * scale);
+		glm::vec3 v = normalize(glm::vec3(sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta), u));
+		//glm::vec3 pos = glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)) + vec3(0, 0, -5.f);
+		Particle p;
+		p.velocity = speed * v;
+		p.pos = vec3(0);
+		p.lifetime = 0;
+		p.life_length = 5;
+
+		particle_system.spawn(p);
 	}
 
 	return quitEvent;

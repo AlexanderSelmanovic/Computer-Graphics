@@ -21,11 +21,12 @@ public:
 	std::vector<Particle> particles;
 	int max_size;
 	// Ctor/Dtor
-	ParticleSystem() : max_size(0)
+	ParticleSystem() : ParticleSystem(0)
 	{
 	}
 	explicit ParticleSystem(int size) : max_size(size)
 	{
+		particles.reserve(size);
 	}
 	~ParticleSystem()
 	{
