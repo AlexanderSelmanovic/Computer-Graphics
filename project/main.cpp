@@ -390,7 +390,7 @@ void display(void)
 	glBindBuffer(GL_ARRAY_BUFFER, pos_life_buffer);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, data.size() * sizeof(vec4), data.data());
 
-	labhelper::setUniformSlow(particleShaderProgram, "P", projMatrix * viewMatrix);
+	labhelper::setUniformSlow(particleShaderProgram, "P", projMatrix * fighterModelMatrix * viewMatrix);
 
 	//float camera_pan = 0.f;
 	//loc = glGetUniformLocation(shaderProgram, "screen_x");
@@ -489,6 +489,7 @@ bool handleEvents(void)
 		if (state[SDL_SCANCODE_W])
 		{
 			cameraPosition += deltaTime * cameraSpeed * cameraDirection;
+
 		}
 		if (state[SDL_SCANCODE_S])
 		{
@@ -510,24 +511,27 @@ bool handleEvents(void)
 		{
 			cameraPosition += deltaTime * cameraSpeed * worldUp;
 		}
+
+		if (state[SDL_SCANCODE_UP])
+		{
+			float speed = 10.0f;
+			for (size_t ix = 0; ix < 64; ix++) {
+				const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
+				const float u = labhelper::uniform_randf(0.95f, 1.f);
+				glm::vec3 v = normalize(glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)));
+				Particle p;
+				p.velocity = speed * v;
+				p.pos = vec3(17.f, 3.5f ,0);
+				p.lifetime = 0;
+				p.life_length = 5;
+
+				particle_system.spawn(p);
+			}
+		}
 	}
 
 
-	float speed = 10.0f;
-	for (size_t ix = 0; ix < 64; ix++) {
-		const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
-		const float u = labhelper::uniform_randf(0.95f, 1.f);
-		//glm::vec3 pos = glm::vec3(sqrt(1.f - u * u) * cosf(theta) * scale, u * scale, sqrt(1.f - u * u) * sinf(theta) * scale);
-		glm::vec3 v = normalize(glm::vec3(sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta), u));
-		//glm::vec3 pos = glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)) + vec3(0, 0, -5.f);
-		Particle p;
-		p.velocity = speed * v;
-		p.pos = vec3(0);
-		p.lifetime = 0;
-		p.life_length = 5;
-
-		particle_system.spawn(p);
-	}
+	
 
 	return quitEvent;
 }
