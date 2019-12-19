@@ -116,9 +116,6 @@ GLuint VAOparticles;
 GLuint pos_life_buffer;
 GLuint texture;
 
-
-
-unsigned int active_particles;
 size_t max_size = 100000;
 std::vector<glm::vec4> data;
 ParticleSystem particle_system(max_size);
@@ -179,24 +176,6 @@ void initGL()
 
 	/**************LAB 7****************/
 
-		//////GPU data///////////////////
-
-		//////// Extract the data we wish to upload  ///////////
-
-		//Assume this exists
-		//ParticleSystem particle_system(100000); // modified particle data
-
-		//and do
-	active_particles = 20000;//particle_system.particles.size();
-
-	// Code for extracting data goes here
-	//data.resize(active_particles);
-
-	//When we have a particle system
-	//for (size_t ix = 0; ix < active_particles; ix++)
-	//	data.push_back(vec4(particle_system.particles[ix].pos, particle_system.particles[ix].lifetime));
-	//
-
 	///////////////////////////////////////////////////
 
 	///////////////Uploading data to the gpu////////////////
@@ -211,6 +190,29 @@ void initGL()
 	glEnableVertexAttribArray(0);
 	//////////////////////////////////////////////////
 
+	
+	int w, h, comp;
+	unsigned char* image = stbi_load("../scenes/explosion.png", &w, &h, &comp, STBI_rgb_alpha);
+	
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	free(image);
+
+	glGenerateMipmap(GL_TEXTURE_2D);
+	// Sets the type of filtering to be used on magnifying and
+	// minifying the active texture. These are the nicest available options.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+
+	// Enable shader program point size modulation.
+	glEnable(GL_PROGRAM_POINT_SIZE);
+	// Enable blending.
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 /***********************************/
 
@@ -380,31 +382,26 @@ void display(void)
 
 	data.clear();
 	for (Particle p : particle_system.particles) {
-		data.push_back(vec4(p.pos, p.lifetime / p.life_length));
+		vec3 pos = vec3(viewMatrix * vec4(p.pos, 1.0f));
+		data.push_back(vec4(pos, p.lifetime / p.life_length));
 	}
 
 	// sort particles with sort from c++ standard library
-	//std::sort(data.begin(), std::next(data.begin(), active_particles),
-	//	[](const vec4& lhs, const vec4& rhs) { return lhs.z < rhs.z; });
+	std::sort(data.begin(), std::next(data.begin(), data.size()),
+		[](const vec4& lhs, const vec4& rhs) { return lhs.z < rhs.z; });
 
 
 	glUseProgram(particleShaderProgram); // bind shader 
 
-	//labhelper::setUniformSlow(particleShaderProgram, "P", inverse(projectionMatrix * viewMatrix));
-
 	glBindBuffer(GL_ARRAY_BUFFER, pos_life_buffer);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, data.size() * sizeof(vec4), data.data());
 
-	labhelper::setUniformSlow(particleShaderProgram, "P", projMatrix * viewMatrix);
+	labhelper::setUniformSlow(particleShaderProgram, "P", projMatrix);
+	labhelper::setUniformSlow(particleShaderProgram, "screen_x", float(w));
+	labhelper::setUniformSlow(particleShaderProgram, "screen_y", float(h));
 
-	//float camera_pan = 0.f;
-	//loc = glGetUniformLocation(shaderProgram, "screen_x");
-	//glUniform1f(loc, camera_pan);
-
-	//loc = glGetUniformLocation(shaderProgram, "screen_y");
-	//glUniform1f(loc, camera_pan);
-
-	
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, texture);
 
 	glBindVertexArray(VAOparticles);
 	
@@ -413,7 +410,7 @@ void display(void)
 	/*****************************************/
 	CHECK_GL_ERROR();
 
-
+	glUseProgram(0);
 
 }
 
@@ -524,19 +521,6 @@ bool handleEvents(void)
 			T[3] -= speed * deltaTime * R[0];// vec4(-R[0][2], 0, R[0][0], 0.0f);
 			
 			//float speed = 20.0f;
-			for (size_t ix = 0; ix < 64; ix++) {
-				const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
-				const float u = labhelper::uniform_randf(0.95f, 1.f);
-				glm::vec3 v = normalize(glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)));
-				vec3 fighter = vec3(0);
-				Particle p;
-				p.velocity = mat3(fighterModelMatrix) * speed * v;
-				p.pos = fighterModelMatrix * vec4(17.f, 3.5f, 0, 1);
-				p.lifetime = 0;
-				p.life_length = 5;
-
-				particle_system.spawn(p);
-			}
 		}
 		if (state[SDL_SCANCODE_DOWN]) {
 			T[3] += speed * deltaTime * R[0];//vec4(0.0f, 0.0f, 1.0f, 0.0f);
@@ -555,6 +539,20 @@ bool handleEvents(void)
 		R[2] = vec4(cross(vec3(R[0]), vec3(R[1])), 0.0f);
 
 		fighterModelMatrix = T * R;
+
+		for (size_t ix = 0; ix < 64; ix++) {
+			const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
+			const float u = labhelper::uniform_randf(0.95f, 1.f);
+			glm::vec3 v = normalize(mat3(fighterModelMatrix) * glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)));
+			vec3 fighter = vec3(0);
+			Particle p;
+			p.velocity = speed * v;
+			p.pos = fighterModelMatrix * vec4(17.f, 3.5f, 0, 1);
+			p.lifetime = 0;
+			p.life_length = 5;
+
+			particle_system.spawn(p);
+		}
 	}
 
 
