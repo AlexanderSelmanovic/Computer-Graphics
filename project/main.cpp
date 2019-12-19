@@ -405,23 +405,7 @@ void display(void)
 
 	viewMatrix = lookAt(cameraPosition, cameraPosition + cameraDirection, worldUp);
 
-	//mat4 P = projMatrix;// inverse( projMatrix);// inverse(viewMatrix);
-
-	mat4 P = projMatrix * fighterModelMatrix * inverse(viewMatrix);
-	/*mat4 P = mat4(1.0f, 0.0f, 0.0f, 0.0f,
-				0.0f, 1.0f, 0.0f, 0.0f,
-				0.0f, 0.0f, 1.0f, -1.0f,
-			0.0f, 0.0f, 0.0f, -1.0f);*/
-
-			//	mat4(1.0f, 0.0f, 0.0f, 0.0f,
-			//			  0.0f, 2.0f, 0.0f, 0.0f,
-			//			  0.0f, 0.0f, 0.0f, -1.0f,
-			//			  0.0f, 0.0f, 0.0f, -10.0f);
-			////lightProjMatrix;// inverse( projMatrix);// inverse(viewMatrix);
-
-	int loc = glGetUniformLocation(particleShaderProgram, "cameraPosition");
-	//glUniformMatrix4fv(loc, 1, false, &projectionMatrix[0].x);
-	glUniform3fv(loc, 1, &cameraPosition[0]);
+	mat4 P = projMatrix;// inverse( projMatrix);// inverse(viewMatrix);
 
 	//labhelper::setUniformSlow(particleShaderProgram, "P", inverse(projectionMatrix * viewMatrix));
 
