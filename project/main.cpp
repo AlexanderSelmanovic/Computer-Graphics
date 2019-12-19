@@ -404,20 +404,14 @@ void display(void)
 
 	viewMatrix = lookAt(cameraPosition, cameraPosition + cameraDirection, worldUp);
 
-
-	float fovy = radians(45.0f);
-	float aspectRatio = float(w) / float(h);
-	float nearPlane = 0.01f;
-	float farPlane = 300.0f;
-	mat4 projectionMatrix = perspective(fovy, aspectRatio, nearPlane, farPlane);
-	mat4 P = projectionMatrix;
+	mat4 P = projMatrix;// inverse( projMatrix);// inverse(viewMatrix);
 
 	//labhelper::setUniformSlow(particleShaderProgram, "P", inverse(projectionMatrix * viewMatrix));
 
 
 	int loc = glGetUniformLocation(particleShaderProgram, "P");
 	//glUniformMatrix4fv(loc, 1, false, &projectionMatrix[0].x);
-	glUniformMatrix4fv(loc, 1, false, &P[0].x);
+	glUniformMatrix4fv(loc, 1, false, &P[0][0]);
 
 	float camera_pan = 0.f;
 	loc = glGetUniformLocation(shaderProgram, "screen_x");
