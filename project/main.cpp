@@ -519,8 +519,19 @@ bool handleEvents(void)
 		const float speed = 40.0f;
 		if (state[SDL_SCANCODE_UP]) {
 			T[3] -= speed * deltaTime * R[0];// vec4(-R[0][2], 0, R[0][0], 0.0f);
-			
-			//float speed = 20.0f;
+			for (size_t ix = 0; ix < 64; ix++) {
+				const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
+				const float u = labhelper::uniform_randf(0.95f, 1.f);
+				glm::vec3 v = normalize(mat3(fighterModelMatrix) * glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)));
+				vec3 fighter = vec3(0);
+				Particle p;
+				p.velocity = speed * v;
+				p.pos = fighterModelMatrix * vec4(17.f, 3.5f, 0, 1);
+				p.lifetime = 0;
+				p.life_length = 5;
+
+				particle_system.spawn(p);
+			}
 		}
 		if (state[SDL_SCANCODE_DOWN]) {
 			T[3] += speed * deltaTime * R[0];//vec4(0.0f, 0.0f, 1.0f, 0.0f);
@@ -539,20 +550,6 @@ bool handleEvents(void)
 		R[2] = vec4(cross(vec3(R[0]), vec3(R[1])), 0.0f);
 
 		fighterModelMatrix = T * R;
-
-		for (size_t ix = 0; ix < 64; ix++) {
-			const float theta = labhelper::uniform_randf(0.f, 2.f * M_PI);
-			const float u = labhelper::uniform_randf(0.95f, 1.f);
-			glm::vec3 v = normalize(mat3(fighterModelMatrix) * glm::vec3(u, sqrt(1.f - u * u) * cosf(theta), sqrt(1.f - u * u) * sinf(theta)));
-			vec3 fighter = vec3(0);
-			Particle p;
-			p.velocity = speed * v;
-			p.pos = fighterModelMatrix * vec4(17.f, 3.5f, 0, 1);
-			p.lifetime = 0;
-			p.life_length = 5;
-
-			particle_system.spawn(p);
-		}
 	}
 
 
